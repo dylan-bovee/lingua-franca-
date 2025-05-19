@@ -8,40 +8,81 @@
 <body>
     <div class="container">
         <h1>Traducteur Multilingue</h1>
-        <form method="post">
-            <div class="form-group">
-                <label for="src_lang">Langue source :</label>
-                <select name="src_lang">
-                    <option value="auto" {% if request.form.get('src_lang') == 'auto' %}selected{% endif %}>Détection automatique</option>
-                    {% for code, name in languages.items() %}
-                        <option value="{{ code }}" {% if code == request.form.get('src_lang') %}selected{% endif %}>
-                            {{ name.title() }}
-                        </option>
-                    {% endfor %}
-                </select>
+        
+        <div class="form-group">
+            <label for="src_lang">Langue source :</label>
+            <select id="src_lang">
+                <option value="auto">Détection automatique</option>
+                {% for code, name in languages.items() %}
+                    <option value="{{ code }}">{{ name.title() }}</option>
+                {% endfor %}
+            </select>
 
-                <textarea name="text" placeholder="Texte à traduire...">{{ text_to_translate }}</textarea>
+            <textarea id="input_text" placeholder="Texte à traduire..." oninput="autoResize(this)"></textarea>
+            <p class="lang-detected" id="lang_detected"></p>
+        </div>
 
-                {% if source_lang_detected %}
-                    <p class="lang-detected">Langue détectée : {{ source_lang_detected.title() }}</p>
-                {% endif %}
-            </div>
+        <div class="form-group">
+            <label for="dest_lang">Langue cible :</label>
+            <select id="dest_lang">
+                {% for code, name in languages.items() %}
+                    <option value="{{ code }}">{{ name.title() }}</option>
+                {% endfor %}
+            </select>
 
-            <div class="form-group">
-                <label for="dest_lang">Langue cible :</label>
-                <select name="dest_lang">
-                    {% for code, name in languages.items() %}
-                        <option value="{{ code }}" {% if code == request.form.get('dest_lang') %}selected{% endif %}>
-                            {{ name.title() }}
-                        </option>
-                    {% endfor %}
-                </select>
-
-                <textarea readonly placeholder="Traduction...">{{ translated_text }}</textarea>
-            </div>
-
-            <button type="submit">Traduire</button>
-        </form>
+            <textarea readonly id="output_text" placeholder="Traduction..."></textarea>
+        </div>
     </div>
+
+    <script>
+        const inputText = document.getElementById("input_text");
+        const outputText = document.getElementById("output_text");
+        const srcLang = document.getElementById("src_lang");
+        const destLang = document.getElementById("dest_lang");
+        const langDetected = document.getElementById("lang_detected");
+
+        let timer = null;
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
+
+        inputText.addEventListener("input", () => {
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                translateText();
+            }, 500); // attend 500ms après la dernière frappe
+        });
+
+        srcLang.addEventListener("change", translateText);
+        destLang.addEventListener("change", translateText);
+
+        function translateText() {
+            const text = inputText.value;
+            if (!text.trim()) {
+                outputText.value = "";
+                langDetected.textContent = "";
+                return;
+            }
+
+            fetch("/translate", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    text: text,
+                    src_lang: srcLang.value,
+                    dest_lang: destLang.value,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                outputText.value = data.translated_text;
+                langDetected.textContent = data.detected_lang ? "Langue détectée : " + data.detected_lang : "";
+            });
+        }
+    </script>
 </body>
 </html>
