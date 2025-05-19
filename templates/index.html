@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Traducteur Multilingue</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Traducteur Multilingue</h1>
+        <form method="post">
+            <div class="form-group">
+                <label for="src_lang">Langue source :</label>
+                <select name="src_lang">
+                    <option value="auto" {% if request.form.get('src_lang') == 'auto' %}selected{% endif %}>Détection automatique</option>
+                    {% for code, name in languages.items() %}
+                        <option value="{{ code }}" {% if code == request.form.get('src_lang') %}selected{% endif %}>
+                            {{ name.title() }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <textarea name="text" placeholder="Texte à traduire...">{{ text_to_translate }}</textarea>
+
+                {% if source_lang_detected %}
+                    <p class="lang-detected">Langue détectée : {{ source_lang_detected.title() }}</p>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="dest_lang">Langue cible :</label>
+                <select name="dest_lang">
+                    {% for code, name in languages.items() %}
+                        <option value="{{ code }}" {% if code == request.form.get('dest_lang') %}selected{% endif %}>
+                            {{ name.title() }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <textarea readonly placeholder="Traduction...">{{ translated_text }}</textarea>
+            </div>
+
+            <button type="submit">Traduire</button>
+        </form>
+    </div>
+</body>
+</html>
