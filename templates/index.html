@@ -3,85 +3,141 @@
 <head>
     <meta charset="UTF-8">
     <title>Traducteur Multilingue</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Traducteur Multilingue</h1>
-        
-        <div class="form-group">
-            <label for="src_lang">Langue source :</label>
-            <select id="src_lang">
-                <option value="auto">Détection automatique</option>
-                {% for code, name in languages.items() %}
-                    <option value="{{ code }}">{{ name.title() }}</option>
-                {% endfor %}
-            </select>
+        <h1>Traducteur</h1>
 
-            <textarea id="input_text" placeholder="Texte à traduire..." oninput="autoResize(this)"></textarea>
-            <p class="lang-detected" id="lang_detected"></p>
+        <div class="controls">
+            <div>
+                <label>Langue source :</label>
+                <select id="src_lang">
+                    <option value="auto">Détection automatique</option>
+                    {% for code, name in languages.items() %}
+                        <option value="{{ code }}">{{ name.title() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button id="switch_langs" title="Inverser les langues">
+                <i data-lucide="refresh-ccw"></i>
+            </button>
+
+            <div>
+                <label>Langue cible :</label>
+                <select id="dest_lang">
+                    {% for code, name in languages.items() %}
+                        <option value="{{ code }}">{{ name.title() }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
-        <div class="form-group">
-            <label for="dest_lang">Langue cible :</label>
-            <select id="dest_lang">
-                {% for code, name in languages.items() %}
-                    <option value="{{ code }}">{{ name.title() }}</option>
-                {% endfor %}
-            </select>
+        <textarea id="input_text" placeholder="Texte à traduire..." oninput="autoResize(this)"></textarea>
+        <div class="lang-detected" id="lang_detected"></div>
 
-            <textarea readonly id="output_text" placeholder="Traduction..."></textarea>
+        <div class="output-container">
+            <textarea id="output_text" readonly placeholder="Traduction..."></textarea>
+
+            <div class="buttons">
+                <button onclick="copyText()" title="Copier">
+                    <i data-lucide="copy"></i>
+                </button>
+                <button onclick="speakText()" title="Écouter">
+                    <i data-lucide="volume-2"></i>
+                </button>
+                <button onclick="downloadText()" title="Télécharger">
+                    <i data-lucide="download"></i>
+                </button>
+            </div>
         </div>
+
+        <div id="loader" class="loader" style="display:none;"></div>
     </div>
 
     <script>
+        lucide.createIcons();
+
         const inputText = document.getElementById("input_text");
         const outputText = document.getElementById("output_text");
         const srcLang = document.getElementById("src_lang");
         const destLang = document.getElementById("dest_lang");
         const langDetected = document.getElementById("lang_detected");
+        const loader = document.getElementById("loader");
 
         let timer = null;
 
         function autoResize(textarea) {
             textarea.style.height = 'auto';
-            textarea.style.height = (textarea.scrollHeight) + 'px';
+            textarea.style.height = textarea.scrollHeight + 'px';
         }
 
         inputText.addEventListener("input", () => {
             clearTimeout(timer);
             timer = setTimeout(() => {
                 translateText();
-            }, 500); // attend 500ms après la dernière frappe
+            }, 400);
         });
 
         srcLang.addEventListener("change", translateText);
         destLang.addEventListener("change", translateText);
 
+        document.getElementById("switch_langs").addEventListener("click", () => {
+            const tmp = srcLang.value;
+            srcLang.value = destLang.value;
+            destLang.value = tmp;
+            translateText();
+        });
+
         function translateText() {
-            const text = inputText.value;
-            if (!text.trim()) {
+            const text = inputText.value.trim();
+            if (!text) {
                 outputText.value = "";
                 langDetected.textContent = "";
                 return;
             }
 
+            loader.style.display = "block";
             fetch("/translate", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     text: text,
                     src_lang: srcLang.value,
                     dest_lang: destLang.value,
                 }),
             })
-            .then(response => response.json())
+            .then(res => res.json())
             .then(data => {
-                outputText.value = data.translated_text;
-                langDetected.textContent = data.detected_lang ? "Langue détectée : " + data.detected_lang : "";
+                loader.style.display = "none";
+                outputText.style.opacity = 0;
+                setTimeout(() => {
+                    outputText.value = data.translated_text;
+                    outputText.style.opacity = 1;
+                    langDetected.textContent = data.detected_lang ? "Langue détectée : " + data.detected_lang : "";
+                }, 150);
             });
+        }
+
+        function copyText() {
+            navigator.clipboard.writeText(outputText.value);
+        }
+
+        function speakText() {
+            const text = outputText.value;
+            const utterance = new SpeechSynthesisUtterance(text);
+            speechSynthesis.speak(utterance);
+        }
+
+        function downloadText() {
+            const blob = new Blob([outputText.value], { type: 'text/plain' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'traduction.txt';
+            link.click();
         }
     </script>
 </body>
